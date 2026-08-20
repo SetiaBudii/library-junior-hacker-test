@@ -1,3 +1,14 @@
+- name: Hardcode secure nameservers in resolv.conf
+  become: yes
+  ansible.builtin.copy:
+    dest: /etc/resolv.conf
+    content: |
+      nameserver 202.138.224.22
+      nameserver 1.1.1.1
+    owner: root
+    group: root
+    mode: '0644'
+
 - name: Add the user 'admin' with a bash shell to the user's groups
   user:
     name: admin

@@ -5,7 +5,7 @@ hosts:
     base_box:
       image: kali
       mgmt_user: debian
-    flavor: standard.large
+    flavor: custom.attacker
 
   - name: server
     base_box:

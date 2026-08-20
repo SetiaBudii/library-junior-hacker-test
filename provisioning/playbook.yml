@@ -1,6 +1,20 @@
 ---
 # Basic configuration of all defined devices
 
+# 1. Paksa DNS di awal untuk semua host (termasuk man) agar tidak timeout ke 1.1.1.1
+- name: Force custom DNS resolver globally
+  hosts: all
+  become: yes
+  tasks:
+    - name: Override resolv.conf with local DNS
+      ansible.builtin.copy:
+        dest: /etc/resolv.conf
+        content: |
+          nameserver 202.138.224.22
+        owner: root
+        group: root
+        mode: '0644'
+
 # Installation of common tools at all hosts
 - name: Configuring hosts
   hosts: hosts
@@ -37,15 +51,6 @@
 - name: Install Chrony on MAN node
   hosts: man
   become: yes
-  pre_tasks:
-    - name: Force DNS resolver to local IP before network test
-      ansible.builtin.copy:
-        dest: /etc/resolv.conf
-        content: |
-          nameserver 202.138.224.22
-        owner: root
-        group: root
-        mode: '0644'
   roles:
     - role: chrony
 

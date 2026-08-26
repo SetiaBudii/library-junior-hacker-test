@@ -1,53 +1,76 @@
+---
+# Docker-based single-node Wazuh deployment
+# Uses the official wazuh-docker single-node stack (manager + indexer + dashboard
+# all as containers on one host, via docker compose).
+
 - name: Install prerequisites
   apt:
     name:
-      - gnupg
-      - apt-transport-https
+      - ca-certificates
       - curl
+      - gnupg
+      - git
     state: present
     update_cache: yes
 
-- name: Add Wazuh GPG key
+- name: Add Docker GPG key
   apt_key:
-    url: https://packages.wazuh.com/key/GPG-KEY-WAZUH
+    url: https://download.docker.com/linux/debian/gpg
     state: present
 
-- name: Add Wazuh apt repository
+- name: Add Docker apt repository
   apt_repository:
-    repo: "deb https://packages.wazuh.com/4.x/apt/ stable main"
-    filename: wazuh
+    repo: "deb [arch={{ ansible_architecture == 'x86_64' | ternary('amd64', ansible_architecture) }}] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
+    filename: docker
     state: present
 
-- name: Install Wazuh manager
+- name: Install Docker Engine and Compose plugin
   apt:
-    name: wazuh-manager
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
     state: present
     update_cache: yes
 
-- name: Enable and start Wazuh manager service
+- name: Enable and start Docker service
   service:
-    name: wazuh-manager
+    name: docker
     state: started
     enabled: yes
 
-- name: Install Wazuh indexer prerequisites
-  apt:
-    name: wazuh-indexer
+# Wazuh indexer (OpenSearch-based) requires a higher vm.max_map_count,
+# same requirement as native OpenSearch/Elasticsearch deployments.
+- name: Set vm.max_map_count for the Wazuh indexer
+  sysctl:
+    name: vm.max_map_count
+    value: "262144"
     state: present
+    reload: yes
 
-- name: Enable and start Wazuh indexer service
-  service:
-    name: wazuh-indexer
-    state: started
-    enabled: yes
+- name: Clone the wazuh-docker repository (single-node stack)
+  git:
+    repo: https://github.com/wazuh/wazuh-docker.git
+    dest: /opt/wazuh-docker
+    version: v4.9.0
+    depth: 1
+  register: wazuh_docker_clone
 
-- name: Install Wazuh dashboard
-  apt:
-    name: wazuh-dashboard
-    state: present
+- name: Generate self-signed certificates for the stack
+  command: docker compose -f generate-indexer-certs.yml run --rm generator
+  args:
+    chdir: /opt/wazuh-docker/single-node
+    creates: /opt/wazuh-docker/single-node/config/wazuh_indexer_ssl_certs/root-ca.pem
 
-- name: Enable and start Wazuh dashboard service
-  service:
-    name: wazuh-dashboard
-    state: started
-    enabled: yes
+- name: Start the Wazuh single-node stack (manager, indexer, dashboard)
+  command: docker compose up -d
+  args:
+    chdir: /opt/wazuh-docker/single-node
+
+- name: Wait for the Wazuh dashboard to become reachable
+  wait_for:
+    port: 443
+    host: 127.0.0.1
+    delay: 10
+    timeout: 300

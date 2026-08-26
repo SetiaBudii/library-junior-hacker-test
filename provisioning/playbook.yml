@@ -1,36 +1,5 @@
-name: library-junior-hacker
-
-hosts:
-  - name: attacker
-    base_box:
-      image: kali
-      mgmt_user: debian
-    flavor: custom.attacker
-
-  - name: server
-    base_box:
-      image: debian-12-x86_64
-      mgmt_user: debian
-    flavor: standard.small
-
-  - name: client
-    base_box:
-      image: debian-12-x86_64---
+---
 # Basic configuration of all defined devices
-
-# 1. Paksa DNS di awal untuk semua host (termasuk man) agar tidak timeout ke 1.1.1.1
-- name: Force custom DNS resolver globally
-  hosts: all
-  become: yes
-  tasks:
-    - name: Override resolv.conf with local DNS
-      ansible.builtin.copy:
-        dest: /etc/resolv.conf
-        content: |
-          nameserver 202.138.224.22
-        owner: root
-        group: root
-        mode: '0644'
 
 # Installation of common tools at all hosts
 - name: Configuring hosts
@@ -49,8 +18,6 @@ hosts:
       user_access_password: Password123
       user_access_sudo: True
     - role: attacker
-      user_access_password: Password123
-      user_access_sudo: True
     - role: chrony
 
 - name: Configure client
@@ -65,11 +32,11 @@ hosts:
   roles:
     - role: server
 
-- name: Install Chrony on MAN node
-  hosts: man
-  become: yes
+- name: Configure wazuh manager
+  hosts: wazuh
+  become: true
   roles:
-    - role: chrony
+    - role: wazuh-manager
 
 - name: setup hosts logging roles
   hosts:
@@ -83,57 +50,6 @@ hosts:
     - role: sandbox-logging
       slf_destination_port: '{% if hostvars["man"] is defined -%} 514 {%- else -%} 515 {%- endif %}'
       slf_destination: '{% if hostvars["man"] is defined -%} {{ hostvars["man"].ansible_host }} {%- else -%} {{ central_syslog_ip }} {%- endif %}'
-
-      mgmt_user: debian
-    flavor: standard.small
-
-  - name: wazuh
-    base_box:
-      image: debian-12-x86_64
-      mgmt_user: debian
-    flavor: standard.large
-
-routers:
-  - name: router
-    base_box:
-      image: debian-12-x86_64
-      mgmt_user: debian
-    flavor: standard.small
-
-wan:
-  name: internet-connection
-  cidr: 100.100.100.0/24
-
-networks:
-  - name: target-switch
-    cidr: 10.1.26.0/24
-    accessible_by_user: False
-  - name: attacker-switch
-    cidr: 10.1.27.0/24
-
-net_mappings:
-  - host: attacker
-    network: attacker-switch
-    ip: 10.1.27.23
-
-  - host: server
-    network: target-switch
-    ip: 10.1.26.9
-
-  - host: client
-    network: target-switch
-    ip: 10.1.26.4
-
-  - host: wazuh
-    network: target-switch
-    ip: 10.1.26.10
-
-router_mappings:
-  - router: router
-    network: target-switch
-    ip: 10.1.26.1
-  - router: router
-    network: attacker-switch
-    ip: 10.1.27.1
-
-groups: []
+      slf_sandbox_id: "{{ global_sandbox_id | default(student_id) | default(0) }}"
+      slf_sandbox_name: '{{ global_sandbox_name | default(sandbox_name) }}'
+      slf_pool_id: '{{ global_pool_id | default(None) }}'

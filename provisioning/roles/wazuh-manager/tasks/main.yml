@@ -1,0 +1,53 @@
+- name: Install prerequisites
+  apt:
+    name:
+      - gnupg
+      - apt-transport-https
+      - curl
+    state: present
+    update_cache: yes
+
+- name: Add Wazuh GPG key
+  apt_key:
+    url: https://packages.wazuh.com/key/GPG-KEY-WAZUH
+    state: present
+
+- name: Add Wazuh apt repository
+  apt_repository:
+    repo: "deb https://packages.wazuh.com/4.x/apt/ stable main"
+    filename: wazuh
+    state: present
+
+- name: Install Wazuh manager
+  apt:
+    name: wazuh-manager
+    state: present
+    update_cache: yes
+
+- name: Enable and start Wazuh manager service
+  service:
+    name: wazuh-manager
+    state: started
+    enabled: yes
+
+- name: Install Wazuh indexer prerequisites
+  apt:
+    name: wazuh-indexer
+    state: present
+
+- name: Enable and start Wazuh indexer service
+  service:
+    name: wazuh-indexer
+    state: started
+    enabled: yes
+
+- name: Install Wazuh dashboard
+  apt:
+    name: wazuh-dashboard
+    state: present
+
+- name: Enable and start Wazuh dashboard service
+  service:
+    name: wazuh-dashboard
+    state: started
+    enabled: yes

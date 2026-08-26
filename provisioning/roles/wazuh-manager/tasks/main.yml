@@ -24,12 +24,6 @@
     filename: docker
     state: present
 
-- name: Add Docker apt repository
-  apt_repository:
-    repo: "deb [arch={{ ansible_architecture == 'x86_64' | ternary('amd64', ansible_architecture) }}] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
-    filename: docker
-    state: present
-
 - name: Install Docker Engine and Compose plugin
   apt:
     name:
